@@ -14,14 +14,12 @@
 
 [[redirects]]
   from = "/snapshot/:id"
-  to = "/.netlify/functions/view-snapshot?id=:id"
+  to = "/.netlify/functions/view-snapshot/:id"
   status = 200
   force = true
 
 [[redirects]]
   from = "/api/snapshots/:id"
-  to = "/.netlify/functions/get-snapshot?id=:id"
+  to = "/.netlify/functions/get-snapshot/:id"
   status = 200
   force = true
-
-

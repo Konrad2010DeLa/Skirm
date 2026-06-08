@@ -1,9 +1,10 @@
 "use strict";
 
 const { fetchSnapshot } = require("../../lib/db");
+const { getSnapshotId } = require("../../lib/ids");
 
 exports.handler = async (event) => {
-  const id = event.queryStringParameters && event.queryStringParameters.id;
+  const id = getSnapshotId(event);
   if (!id) {
     return { statusCode: 400, body: JSON.stringify({ error: "Missing snapshot id" }) };
   }

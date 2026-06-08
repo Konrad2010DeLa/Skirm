@@ -2,10 +2,12 @@
 
 const { renderSnapshotPage, renderNotFoundPage } = require("../../lib/snapshot-core");
 const { fetchSnapshot } = require("../../lib/db");
+const { getSnapshotId } = require("../../lib/ids");
 
 exports.handler = async (event) => {
-  const id = event.queryStringParameters && event.queryStringParameters.id;
+  const id = getSnapshotId(event);
   if (!id) {
+    console.error("view-snapshot: missing id", { path: event.path, rawUrl: event.rawUrl });
     return {
       statusCode: 400,
       headers: { "Content-Type": "text/html; charset=utf-8" },
@@ -16,6 +18,7 @@ exports.handler = async (event) => {
   try {
     const entry = await fetchSnapshot(id);
     if (!entry) {
+      console.error("view-snapshot: not in database", { id: id });
       return {
         statusCode: 404,
         headers: { "Content-Type": "text/html; charset=utf-8" },
@@ -31,8 +34,8 @@ exports.handler = async (event) => {
     console.error("view-snapshot error:", err);
     return {
       statusCode: 500,
-      headers: { "Content-Type": "text/html; charset=utf-8" },
-      body: renderNotFoundPage(),
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+      body: "Server error loading snapshot. Check Netlify function logs.",
     };
   }
 };
