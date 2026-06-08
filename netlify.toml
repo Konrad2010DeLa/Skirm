@@ -1,5 +1,5 @@
 [build]
-  command = "npm install"
+  command = "node scripts/fix-encoding.js && npm install"
   functions = "netlify/functions"
   publish = "public"
 

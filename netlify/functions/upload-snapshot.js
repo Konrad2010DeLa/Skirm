@@ -26,11 +26,11 @@ exports.handler = async (event) => {
   try {
     const id = generateId();
     await insertSnapshot(id, parsed.body);
-    const viewUrl = `${getPublicBaseUrl()}/snapshot/${id}`;
+    const viewUrl = getPublicBaseUrl() + "/snapshot/" + id;
     return {
       statusCode: 200,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ success: true, id, viewUrl }),
+      body: JSON.stringify({ success: true, id: id, viewUrl: viewUrl }),
     };
   } catch (err) {
     console.error("upload-snapshot error:", err);
