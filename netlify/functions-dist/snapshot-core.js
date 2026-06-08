@@ -1,0 +1,188 @@
+"use strict";
+
+const crypto = require("crypto");
+
+const BODY_LIMIT = 256 * 1024;
+
+function getPublicBaseUrl() {
+  const raw =
+    process.env.PUBLIC_BASE_URL ||
+    process.env.URL ||
+    process.env.DEPLOY_PRIME_URL ||
+    "http://127.0.0.1:3847";
+  return raw.replace(/\/+$/, "");
+}
+
+function generateId() {
+  return crypto.randomBytes(8).toString("hex");
+}
+
+function validateSnapshotBody(body) {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return "Request body must be a JSON object";
+  }
+  if (!Array.isArray(body.players) || body.players.length === 0) {
+    return "players must be a non-empty array";
+  }
+  for (let i = 0; i < body.players.length; i++) {
+    const p = body.players[i];
+    if (!p || typeof p !== "object" || Array.isArray(p)) {
+      return "players[" + i + "] must be an object";
+    }
+    if (typeof p.playerName !== "string" || p.playerName.trim() === "") {
+      return "players[" + i + "].playerName must be a non-empty string";
+    }
+    if (typeof p.civilization !== "string" || p.civilization.trim() === "") {
+      return "players[" + i + "].civilization must be a non-empty string";
+    }
+  }
+  return null;
+}
+
+function parseJsonBody(rawBody) {
+  if (rawBody == null || rawBody === "") {
+    return { error: "Request body must be a JSON object" };
+  }
+  if (typeof rawBody === "object") {
+    return { body: rawBody };
+  }
+  if (Buffer.byteLength(rawBody, "utf8") > BODY_LIMIT) {
+    return { error: "Request body too large" };
+  }
+  try {
+    return { body: JSON.parse(rawBody) };
+  } catch (e) {
+    return { error: "Invalid JSON body" };
+  }
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function formatMapScript(mapScript) {
+  if (!mapScript) return "Unknown";
+  const parts = String(mapScript).split(/[\\/]/);
+  return parts[parts.length - 1] || mapScript;
+}
+
+function playerTypeLabel(player) {
+  const kind = player.isHuman ? "Human" : "AI";
+  return player.isAlive === false ? kind + " (defeated)" : kind;
+}
+
+function sortPlayers(players) {
+  return players.slice().sort(function (a, b) {
+    const teamDiff = (a.team != null ? a.team : 0) - (b.team != null ? b.team : 0);
+    if (teamDiff !== 0) return teamDiff;
+    return (a.slot != null ? a.slot : 0) - (b.slot != null ? b.slot : 0);
+  });
+}
+
+function groupPlayersByTeam(players) {
+  const groups = new Map();
+  sortPlayers(players).forEach(function (player) {
+    const team = player.team != null ? player.team : 0;
+    if (!groups.has(team)) groups.set(team, []);
+    groups.get(team).push(player);
+  });
+  return Array.from(groups.entries()).sort(function (a, b) {
+    return a[0] - b[0];
+  });
+}
+
+function renderSnapshotPage(entry) {
+  const publicBaseUrl = getPublicBaseUrl();
+  const id = entry.id;
+  const snapshot = entry.snapshot;
+  const receivedAt = entry.receivedAt;
+  const gameName = snapshot.gameName || "Untitled Game";
+  const turn = snapshot.turn != null ? snapshot.turn : "?";
+  const mapScript = formatMapScript(snapshot.mapScript);
+  const mode = snapshot.isMultiplayer ? "Multiplayer" : "Single Player";
+  const viewUrl = publicBaseUrl + "/snapshot/" + id;
+  const ogDescription = mode + " · Turn " + turn + " · " + snapshot.players.length + " players";
+  const receivedLabel = new Date(receivedAt).toLocaleString("en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+
+  const teamSections = groupPlayersByTeam(snapshot.players)
+    .map(function (group) {
+      const team = group[0];
+      const players = group[1];
+      const rows = players
+        .map(function (p) {
+          return (
+            '\n          <tr class="' +
+            (p.isAlive === false ? "defeated" : "") +
+            '">\n            <td>' +
+            escapeHtml(p.playerName) +
+            "</td>\n            <td>" +
+            escapeHtml(p.civilization) +
+            "</td>\n            <td>" +
+            (team + 1) +
+            "</td>\n            <td>" +
+            escapeHtml(playerTypeLabel(p)) +
+            "</td>\n          </tr>"
+          );
+        })
+        .join("");
+
+      return (
+        '\n        <section class="team-block">\n          <h2>Team ' +
+        (team + 1) +
+        '</h2>\n          <table>\n            <thead>\n              <tr>\n                <th>Player</th>\n                <th>Civilization</th>\n                <th>Team</th>\n                <th>Type</th>\n              </tr>\n            </thead>\n            <tbody>' +
+        rows +
+        "</tbody>\n          </table>\n        </section>"
+      );
+    })
+    .join("");
+
+  return (
+    '<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="utf-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1">\n  <title>' +
+    escapeHtml(gameName) +
+    ' — Malros Snapshot</title>\n  <meta name="description" content="' +
+    escapeHtml(ogDescription) +
+    '">\n  <meta property="og:title" content="' +
+    escapeHtml(gameName) +
+    ' — Malros Snapshot">\n  <meta property="og:description" content="' +
+    escapeHtml(ogDescription) +
+    '">\n  <meta property="og:type" content="website">\n  <meta property="og:url" content="' +
+    escapeHtml(viewUrl) +
+    '">\n  <style>\n    :root {\n      --bg: #1a1208;\n      --panel: #2a1f12;\n      --border: #5c4a2a;\n      --gold: #c9a227;\n      --gold-dim: #8a7020;\n      --text: #e8dcc8;\n      --muted: #a89878;\n      --defeated: #6b5a48;\n    }\n    * { box-sizing: border-box; }\n    body {\n      margin: 0;\n      min-height: 100vh;\n      font-family: Georgia, "Times New Roman", serif;\n      background: linear-gradient(180deg, #120c06 0%, var(--bg) 40%, #0f0a05 100%);\n      color: var(--text);\n      line-height: 1.5;\n    }\n    .wrap {\n      max-width: 900px;\n      margin: 0 auto;\n      padding: 2rem 1.25rem 3rem;\n    }\n    header {\n      border-bottom: 2px solid var(--border);\n      padding-bottom: 1.25rem;\n      margin-bottom: 1.5rem;\n    }\n    .eyebrow {\n      color: var(--gold);\n      font-size: 0.85rem;\n      letter-spacing: 0.12em;\n      text-transform: uppercase;\n      margin: 0 0 0.35rem;\n    }\n    h1 {\n      margin: 0;\n      font-size: clamp(1.6rem, 4vw, 2.2rem);\n      color: var(--gold);\n      font-weight: normal;\n    }\n    .meta {\n      display: grid;\n      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));\n      gap: 0.75rem 1.5rem;\n      margin-top: 1rem;\n      color: var(--muted);\n      font-size: 0.95rem;\n    }\n    .meta strong { color: var(--text); font-weight: normal; }\n    .team-block {\n      background: var(--panel);\n      border: 1px solid var(--border);\n      border-radius: 4px;\n      margin-bottom: 1.25rem;\n      overflow: hidden;\n    }\n    .team-block h2 {\n      margin: 0;\n      padding: 0.65rem 1rem;\n      font-size: 1rem;\n      font-weight: normal;\n      color: var(--gold-dim);\n      background: rgba(0, 0, 0, 0.2);\n      border-bottom: 1px solid var(--border);\n    }\n    table {\n      width: 100%;\n      border-collapse: collapse;\n    }\n    th, td {\n      padding: 0.65rem 1rem;\n      text-align: left;\n      border-bottom: 1px solid rgba(92, 74, 42, 0.45);\n    }\n    th {\n      color: var(--gold-dim);\n      font-size: 0.8rem;\n      text-transform: uppercase;\n      letter-spacing: 0.06em;\n      font-weight: normal;\n    }\n    tr:last-child td { border-bottom: none; }\n    tr.defeated td {\n      color: var(--defeated);\n      font-style: italic;\n    }\n    footer {\n      margin-top: 2rem;\n      color: var(--muted);\n      font-size: 0.85rem;\n      text-align: center;\n    }\n    a { color: var(--gold); }\n  </style>\n</head>\n<body>\n  <div class="wrap">\n    <header>\n      <p class="eyebrow">Malros Skirmish</p>\n      <h1>' +
+    escapeHtml(gameName) +
+    '</h1>\n      <div class="meta">\n        <div><strong>Turn</strong> ' +
+    escapeHtml(turn) +
+    '</div>\n        <div><strong>Map</strong> ' +
+    escapeHtml(mapScript) +
+    '</div>\n        <div><strong>Mode</strong> ' +
+    escapeHtml(mode) +
+    '</div>\n        <div><strong>Received</strong> ' +
+    escapeHtml(receivedLabel) +
+    '</div>\n      </div>\n    </header>\n    ' +
+    teamSections +
+    '\n    <footer>Snapshot ID ' +
+    escapeHtml(id) +
+    "</footer>\n  </div>\n</body>\n</html>"
+  );
+}
+
+function renderNotFoundPage() {
+  return '<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="utf-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1">\n  <title>Snapshot Not Found — Malros</title>\n  <style>\n    body {\n      margin: 0; min-height: 100vh; display: grid; place-items: center;\n      background: #1a1208; color: #e8dcc8; font-family: Georgia, serif;\n    }\n    .box { text-align: center; padding: 2rem; }\n    h1 { color: #c9a227; font-weight: normal; }\n    p { color: #a89878; }\n  </style>\n</head>\n<body>\n  <div class="box">\n    <h1>Snapshot Not Found</h1>\n    <p>This game snapshot does not exist or has expired.</p>\n  </div>\n</body>\n</html>';
+}
+
+module.exports = {
+  BODY_LIMIT: BODY_LIMIT,
+  getPublicBaseUrl: getPublicBaseUrl,
+  generateId: generateId,
+  validateSnapshotBody: validateSnapshotBody,
+  parseJsonBody: parseJsonBody,
+  renderSnapshotPage: renderSnapshotPage,
+  renderNotFoundPage: renderNotFoundPage,
+};

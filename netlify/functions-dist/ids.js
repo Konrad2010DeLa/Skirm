@@ -1,0 +1,28 @@
+"use strict";
+
+function getSnapshotId(event) {
+  if (event.queryStringParameters && event.queryStringParameters.id) {
+    return event.queryStringParameters.id;
+  }
+
+  const path = event.path || "";
+  const pathMatch = path.match(/\/(?:view-snapshot|get-snapshot)\/([^/]+)/);
+  if (pathMatch) {
+    return pathMatch[1];
+  }
+
+  const rawUrl = event.rawUrl || "";
+  const rawMatch = rawUrl.match(/\/snapshot\/([^/?#]+)/);
+  if (rawMatch) {
+    return rawMatch[1];
+  }
+
+  const apiMatch = rawUrl.match(/\/api\/snapshots\/([^/?#]+)/);
+  if (apiMatch) {
+    return apiMatch[1];
+  }
+
+  return null;
+}
+
+module.exports = { getSnapshotId };
