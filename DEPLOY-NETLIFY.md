@@ -29,10 +29,10 @@ Local dev (`npm start`) still uses in-memory storage. Production uses the files 
 
 ### 3. Copy API credentials
 
-1. Go to **Project Settings** (gear) 뿯↽ **API**.
+1. Go to **Project Settings** (gear) → **API**.
 2. Copy and save:
-   - **Project URL** 뿯↽ you will set this as `SUPABASE_URL`
-   - **service_role** key (under *Project API keys*, click Reveal) 뿯↽ `SUPABASE_SERVICE_ROLE_KEY`
+   - **Project URL** → you will set this as `SUPABASE_URL`
+   - **service_role** key (under *Project API keys*, click Reveal) → `SUPABASE_SERVICE_ROLE_KEY`
 
 **Important:** The `service_role` key bypasses Row Level Security. Use it **only** in Netlify environment variables. Never put it in the mod, Lua, or any client-side code.
 
@@ -59,7 +59,7 @@ Netlify deploys from Git. You need `Web/GameSnapshotServer` in a GitHub/GitLab/B
 
 ### 1. Create the site
 
-1. Go to [https://app.netlify.com](https://app.netlify.com) 뿯↽ **Add new site** 뿯↽ **Import an existing project**.
+1. Go to [https://app.netlify.com](https://app.netlify.com) → **Add new site** → **Import an existing project**.
 2. Connect your Git provider and select the repo.
 3. Build settings (should auto-detect from `netlify.toml`):
 
@@ -74,7 +74,7 @@ Netlify deploys from Git. You need `Web/GameSnapshotServer` in a GitHub/GitLab/B
 
 ### 2. Set environment variables
 
-**Site configuration** 뿯↽ **Environment variables** 뿯↽ **Add a variable** 뿯↽ **Add all**:
+**Site configuration** → **Environment variables** → **Add a variable** → **Add all**:
 
 | Variable | Value |
 |----------|-------|
@@ -87,7 +87,7 @@ Netlify deploys from Git. You need `Web/GameSnapshotServer` in a GitHub/GitLab/B
 
 ### 3. Redeploy
 
-**Deploys** 뿯↽ **Trigger deploy** 뿯↽ **Deploy site**.
+**Deploys** → **Trigger deploy** → **Deploy site**.
 
 ### 4. Note your live URLs
 
@@ -98,7 +98,7 @@ After deploy succeeds:
 
 ### 5. (Optional) Custom domain
 
-1. **Domain management** 뿯↽ **Add a domain**.
+1. **Domain management** → **Add a domain**.
 2. Follow DNS instructions.
 3. Netlify provisions HTTPS automatically.
 4. Update `PUBLIC_BASE_URL` to `https://your-domain.com` and redeploy.
@@ -123,7 +123,7 @@ Expected response:
 
 Open `viewUrl` in a browser — you should see Alice / Rome.
 
-In Supabase **Table Editor** 뿯↽ `game_snapshots`, confirm a new row appeared.
+In Supabase **Table Editor** → `game_snapshots`, confirm a new row appeared.
 
 ---
 
