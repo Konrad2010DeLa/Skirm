@@ -3,20 +3,42 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Malros Snapshot Server</title>
-  <style>
-    body { margin: 0; min-height: 100vh; display: grid; place-items: center;
-      background: #1a1208; color: #e8dcc8; font-family: Georgia, serif; text-align: center; }
-    h1 { color: #c9a227; font-weight: normal; }
-    p { color: #a89878; }
-    code { color: #c9a227; }
-  </style>
+  <title>Malros Skirmish — Match Archive</title>
+  <meta name="description" content="Browse collected Malros skirmish match snapshots.">
+  <link rel="stylesheet" href="/app.css">
 </head>
 <body>
-  <div>
-    <h1>Malros Snapshot Server</h1>
-    <p>Upload via <code>POST /api/snapshots</code></p>
-    <p>View snapshots at <code>/snapshot/{id}</code></p>
+  <div class="wrap">
+    <header class="site-header">
+      <p class="eyebrow">Malros Skirmish</p>
+      <h1>Match Archive</h1>
+    </header>
+
+    <nav class="tabs" role="tablist">
+      <button type="button" class="tab-btn active" data-tab="matches" role="tab" aria-selected="true">Matches</button>
+      <button type="button" class="tab-btn" data-tab="about" role="tab" aria-selected="false">About</button>
+    </nav>
+
+    <section id="tab-matches" class="tab-panel active" role="tabpanel">
+      <div class="match-box">
+        <div class="match-box-header">
+          <span>Collected matches</span>
+          <span id="match-count">Loading…</span>
+        </div>
+        <div id="match-list" class="match-list">
+          <div class="loading-state">Loading matches…</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-about" class="tab-panel about-panel" role="tabpanel">
+      <p>Skirmish games upload snapshots from the in-game share button via <code>POST /api/snapshots</code>.</p>
+      <p>Direct match links use <code>/snapshot/{gameId}</code> and open in this browser.</p>
+      <p>Duplicate uploads for the same game ID are ignored — only the first collected snapshot is kept.</p>
+    </section>
+
+    <footer>Malros Mod · Skirmish snapshot server</footer>
   </div>
+  <script src="/app.js"></script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 "use strict";
 
-const { renderSnapshotPage, renderNotFoundPage } = require("../../lib/snapshot-core");
+const { renderNotFoundPage } = require("../../lib/snapshot-core");
 const { fetchSnapshot } = require("../../lib/db");
 const { getSnapshotId } = require("../../lib/ids");
 
@@ -26,9 +26,11 @@ exports.handler = async (event) => {
       };
     }
     return {
-      statusCode: 200,
-      headers: { "Content-Type": "text/html; charset=utf-8" },
-      body: renderSnapshotPage(entry),
+      statusCode: 302,
+      headers: {
+        Location: "/?match=" + encodeURIComponent(id),
+      },
+      body: "",
     };
   } catch (err) {
     console.error("view-snapshot error:", err);

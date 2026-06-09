@@ -1,12 +1,12 @@
 "use strict";
 
 const {
-  generateId,
+  resolveSnapshotId,
   validateSnapshotBody,
   parseJsonBody,
   getPublicBaseUrl,
 } = require("../../lib/snapshot-core");
-const { insertSnapshot } = require("../../lib/db");
+const { upsertSnapshot } = require("../../lib/db");
 
 exports.handler = async (event) => {
   if (event.httpMethod !== "POST") {
@@ -24,8 +24,8 @@ exports.handler = async (event) => {
   }
 
   try {
-    const id = generateId();
-    await insertSnapshot(id, parsed.body);
+    const id = resolveSnapshotId(parsed.body);
+    await upsertSnapshot(id, parsed.body);
     const viewUrl = `${getPublicBaseUrl()}/snapshot/${id}`;
     return {
       statusCode: 200,

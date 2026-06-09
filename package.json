@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "netlify:dev": "netlify dev"
+    "netlify:dev": "npm install && netlify dev"
   },
   "engines": {
     "node": ">=18"

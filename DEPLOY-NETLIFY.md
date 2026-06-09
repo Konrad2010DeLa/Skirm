@@ -169,3 +169,5 @@ npm run netlify:dev
 | Game says upload failed | Response must contain `"viewUrl":"https://..."` — test with curl first |
 | Snapshot not found | Check Supabase table; TTL may have excluded old rows |
 | 400 on invalid JSON | Expected; game shows error body |
+| `Could not resolve "@supabase/supabase-js"` | Run `npm install` in `Web/GameSnapshotServer` before `netlify dev` |
+| `Expected ";" but found "\x00"` on a function file | File was saved as UTF-16; re-save as UTF-8 (VS Code: bottom-right encoding → UTF-8) |

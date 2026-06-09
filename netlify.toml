@@ -5,12 +5,21 @@
 
 [functions]
   node_bundler = "esbuild"
+  external_node_modules = ["@supabase/supabase-js"]
+
+[[redirects]]
+  from = "/api/snapshots"
+  to = "/.netlify/functions/list-snapshots"
+  status = 200
+  force = true
+  methods = ["GET"]
 
 [[redirects]]
   from = "/api/snapshots"
   to = "/.netlify/functions/upload-snapshot"
   status = 200
   force = true
+  methods = ["POST"]
 
 [[redirects]]
   from = "/snapshot/:id"
