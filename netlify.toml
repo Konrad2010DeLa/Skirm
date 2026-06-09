@@ -3,32 +3,33 @@
   functions = "netlify/functions"
   publish = "public"
 
+[dev]
+  command = "npm start"
+  targetPort = 3847
+  port = 8888
+  autoLaunch = false
+
 [functions]
   node_bundler = "esbuild"
   external_node_modules = ["@supabase/supabase-js"]
 
 [[redirects]]
   from = "/api/snapshots"
-  to = "/.netlify/functions/list-snapshots"
+  to = "/.netlify/functions/snapshots"
   status = 200
   force = true
-  methods = ["GET"]
-
-[[redirects]]
-  from = "/api/snapshots"
-  to = "/.netlify/functions/upload-snapshot"
-  status = 200
-  force = true
-  methods = ["POST"]
+  conditions = {Environment = ["production", "deploy-preview", "branch-deploy"]}
 
 [[redirects]]
   from = "/snapshot/:id"
   to = "/.netlify/functions/view-snapshot/:id"
   status = 200
   force = true
+  conditions = {Environment = ["production", "deploy-preview", "branch-deploy"]}
 
 [[redirects]]
   from = "/api/snapshots/:id"
   to = "/.netlify/functions/get-snapshot/:id"
   status = 200
   force = true
+  conditions = {Environment = ["production", "deploy-preview", "branch-deploy"]}
