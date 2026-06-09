@@ -125,10 +125,13 @@ body {
   gap: 0.5rem;
   max-height: 70vh;
   overflow-y: auto;
+  overflow-x: hidden;
   padding-right: 0.25rem;
+  -webkit-overflow-scrolling: touch;
 }
 
 .match-item {
+  flex-shrink: 0;
   border: 1px solid var(--border);
   border-radius: 4px;
   background: var(--panel-deep);
@@ -137,6 +140,7 @@ body {
 
 .match-item.expanded {
   border-color: var(--gold-dim);
+  overflow: visible;
 }
 
 .match-card {
@@ -359,6 +363,151 @@ body {
   color: var(--gold);
 }
 
+.leaderboard-box-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.lb-format-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.85rem;
+}
+
+.lb-format-btn {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: var(--panel-deep);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 0.4rem 0.7rem;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+
+.lb-format-btn:hover {
+  color: var(--text);
+  border-color: var(--gold-dim);
+}
+
+.lb-format-btn.active {
+  border-color: var(--gold);
+  background: rgba(201, 162, 39, 0.15);
+  color: var(--gold);
+}
+
+.leaderboard-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.leaderboard-table th,
+.leaderboard-table td {
+  padding: 0.5rem 0.65rem;
+  text-align: left;
+  border-bottom: 1px solid rgba(92, 74, 42, 0.45);
+}
+
+.leaderboard-table th {
+  color: var(--gold-dim);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: normal;
+}
+
+.leaderboard-table td:first-child,
+.leaderboard-table th:first-child {
+  width: 2.5rem;
+  color: var(--muted);
+}
+
+.leaderboard-table tbody tr:hover {
+  background: rgba(201, 162, 39, 0.06);
+}
+
+.lb-section-title {
+  margin: 0 0 0.85rem;
+  font-size: 0.85rem;
+  font-weight: normal;
+  color: var(--gold-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.global-records-section {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+}
+
+.global-records-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.records-block h3 {
+  margin: 0 0 0.55rem;
+  font-size: 0.95rem;
+  font-weight: normal;
+  color: var(--gold);
+}
+
+.record-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.record-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.25rem 0.75rem;
+  align-items: baseline;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel-deep);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.record-row:hover {
+  border-color: var(--gold-dim);
+  background: rgba(201, 162, 39, 0.08);
+}
+
+.record-label {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.record-value {
+  font-size: 0.95rem;
+  color: var(--gold);
+  white-space: nowrap;
+}
+
+.record-meta {
+  grid-column: 1 / -1;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
 footer {
   margin-top: 1.5rem;
   color: var(--muted);
@@ -386,6 +535,7 @@ footer {
 
     <nav class="tabs" role="tablist">
       <button type="button" class="tab-btn active" data-tab="matches" role="tab" aria-selected="true">Matches</button>
+      <button type="button" class="tab-btn" data-tab="leaderboard" role="tab" aria-selected="false">Leaderboard</button>
       <button type="button" class="tab-btn" data-tab="about" role="tab" aria-selected="false">About</button>
     </nav>
 
@@ -401,9 +551,45 @@ footer {
       </div>
     </section>
 
+    <section id="tab-leaderboard" class="tab-panel" role="tabpanel">
+      <div class="leaderboard-box">
+        <div class="leaderboard-box-header">
+          <span>Win / loss record</span>
+          <span id="leaderboard-count">—</span>
+        </div>
+        <nav class="lb-format-nav" aria-label="Game size filter">
+          <button type="button" class="lb-format-btn active" data-lb-format="overall">Overall</button>
+          <button type="button" class="lb-format-btn" data-lb-format="1v1">1v1</button>
+          <button type="button" class="lb-format-btn" data-lb-format="2v2">2v2</button>
+          <button type="button" class="lb-format-btn" data-lb-format="3v3">3v3</button>
+          <button type="button" class="lb-format-btn" data-lb-format="4v4">4v4</button>
+        </nav>
+        <div id="leaderboard-table">
+          <div class="loading-state">Loading leaderboard…</div>
+        </div>
+
+        <section class="global-records-section" aria-label="Global records">
+          <h2 class="lb-section-title">Global Records</h2>
+          <div class="global-records-grid">
+            <div class="records-block">
+              <h3>Production Milestones</h3>
+              <div id="global-milestone-records" class="record-list">
+                <div class="loading-state">Loading records…</div>
+              </div>
+            </div>
+            <div class="records-block">
+              <h3>Fastest Techs</h3>
+              <div id="global-tech-records" class="record-list">
+                <div class="loading-state">Loading records…</div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </section>
+
     <section id="tab-about" class="tab-panel about-panel" role="tabpanel">
-      <p>Skirmish games upload snapshots from the in-game share button via <code>POST /api/snapshots</code>.</p>
-      <p>Direct match links use <code>/snapshot/{gameId}</code> and open in this browser.</p>
+      <p>Please post any ideas regarding new stats to track or general site ideas to the mod-discussion AND REMEMBER TO ALWAYS ALWAYS CONCEDE VIA THE CONCEDE BUTTON TO RECORD YOUR GAME OR I WILL BE VERY ANGRY D:&lt;</p>
     </section>
 
     <footer>Malros Mod · Skirmish snapshot server</footer>

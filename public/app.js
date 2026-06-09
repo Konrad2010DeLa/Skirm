@@ -4,6 +4,20 @@
   var matches = [];
   var expandedMatchId = null;
   var expandedPlayerKey = null;
+  var leaderboardFormat = "overall";
+  var SKIRM_FORMATS = ["1v1", "2v2", "3v3", "4v4"];
+  var EXCLUDED_RECORD_TEAMS = new Set([22, 23, 24, 25]);
+  var MILESTONE_RECORDS = [
+    { key: "maxProductionAt80", label: "Max production @ turn 80" },
+    { key: "maxProductionAt100", label: "Max production @ turn 100" },
+    { key: "maxProductionAt120", label: "Max production @ turn 120" },
+    { key: "maxCulturePerTurnAtEnd", label: "Max culture / turn" },
+  ];
+  var TECH_RECORDS = [
+    { key: "machineryTurn", label: "Machinery" },
+    { key: "metalCastingTurn", label: "Metal Casting" },
+    { key: "chivalryTurn", label: "Chivalry" },
+  ];
 
   function $(selector) {
     return document.querySelector(selector);
@@ -118,7 +132,6 @@
       "<dt>Civilization</dt><dd>" + escapeHtml(player.civilization || "—") + "</dd>" +
       "<dt>Policies</dt><dd>" + escapeHtml(player.policyUnlocks || "—") + "</dd>" +
       "<dt>Religion</dt><dd>" + renderBeliefs(player.religion) + "</dd>" +
-      "<dt>Steam ID</dt><dd>" + escapeHtml(player.steamId || "—") + "</dd>" +
       "</dl></div>"
     );
   }
@@ -195,6 +208,28 @@
     );
   }
 
+  function scrollExpandedContentIntoView() {
+    window.requestAnimationFrame(function () {
+      if (expandedPlayerKey) {
+        var playerDetail = document.querySelector(
+          '.player-detail.visible[data-player-detail="' + CSS.escape(expandedPlayerKey) + '"]'
+        );
+        if (playerDetail) {
+          playerDetail.scrollIntoView({ behavior: "smooth", block: "nearest" });
+          return;
+        }
+      }
+      if (expandedMatchId) {
+        var matchDetail = document.querySelector(
+          '.match-item[data-match-id="' + CSS.escape(expandedMatchId) + '"] .match-detail'
+        );
+        if (matchDetail) {
+          matchDetail.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }
+      }
+    });
+  }
+
   function renderMatchList() {
     var listEl = $("#match-list");
     var countEl = $("#match-count");
@@ -210,6 +245,7 @@
     if (countEl) {
       countEl.textContent = matches.length + (matches.length === 1 ? " match" : " matches");
     }
+    scrollExpandedContentIntoView();
   }
 
   function setExpandedMatch(matchId) {
@@ -224,6 +260,233 @@
     renderMatchList();
   }
 
+  function normalizePlayerName(name) {
+    return String(name || "").trim().toLowerCase();
+  }
+
+  function isLeaderboardPlayer(player) {
+    if (player.isHuman === false || player.isHuman === 0) return false;
+    if (EXCLUDED_RECORD_TEAMS.has(player.team != null ? player.team : -1)) return false;
+    return typeof player.playerName === "string" && player.playerName.trim() !== "";
+  }
+
+  function isExcludedRecordTeam(team) {
+    return EXCLUDED_RECORD_TEAMS.has(team != null ? team : -1);
+  }
+
+  function computeWinLossLeaderboard(items, formatFilter) {
+    var stats = new Map();
+    items.forEach(function (match) {
+      var snapshot = match.snapshot || {};
+      if (snapshot.winnerTeam == null || snapshot.winnerTeam < 0) return;
+      if (isExcludedRecordTeam(snapshot.winnerTeam)) return;
+      if (!match.isMultiplayer) return;
+      var format = match.format || "";
+      if (formatFilter === "overall") {
+        if (SKIRM_FORMATS.indexOf(format) === -1) return;
+      } else if (format !== formatFilter) {
+        return;
+      }
+      (snapshot.players || []).forEach(function (player) {
+        if (!isLeaderboardPlayer(player)) return;
+        var key = normalizePlayerName(player.playerName);
+        if (!key) return;
+        if (!stats.has(key)) {
+          stats.set(key, { name: player.playerName.trim(), wins: 0, losses: 0 });
+        }
+        var entry = stats.get(key);
+        if (player.team === snapshot.winnerTeam) {
+          entry.wins += 1;
+        } else {
+          entry.losses += 1;
+        }
+      });
+    });
+    return Array.from(stats.values())
+      .map(function (entry) {
+        var games = entry.wins + entry.losses;
+        return {
+          name: entry.name,
+          wins: entry.wins,
+          losses: entry.losses,
+          games: games,
+          winRate: games > 0 ? (entry.wins / games) * 100 : 0,
+        };
+      })
+      .sort(function (a, b) {
+        if (b.wins !== a.wins) return b.wins - a.wins;
+        if (b.winRate !== a.winRate) return b.winRate - a.winRate;
+        return b.games - a.games;
+      });
+  }
+
+  function formatWinRate(value) {
+    return value.toFixed(1) + "%";
+  }
+
+  function isSkirmMatch(match) {
+    if (!match || !match.isMultiplayer) return false;
+    return SKIRM_FORMATS.indexOf(match.format || "") !== -1;
+  }
+
+  function formatRecordMeta(match, extra) {
+    var parts = [match.format || "?", formatDate(match.receivedAt)];
+    if (extra) parts.unshift(extra);
+    return parts.join(" · ");
+  }
+
+  function computeMilestoneRecords(items) {
+    var best = {};
+    items.forEach(function (match) {
+      if (!isSkirmMatch(match)) return;
+      var milestones = (match.snapshot || {}).milestones || {};
+      MILESTONE_RECORDS.forEach(function (record) {
+        var value = milestones[record.key];
+        if (value == null || value < 0) return;
+        var current = best[record.key];
+        if (!current || value > current.value) {
+          best[record.key] = { value: value, matchId: match.id, match: match };
+        }
+      });
+    });
+    return best;
+  }
+
+  function computeTechRecords(items) {
+    var best = {};
+    items.forEach(function (match) {
+      if (!isSkirmMatch(match)) return;
+      ((match.snapshot || {}).teamTechTurns || []).forEach(function (teamEntry) {
+        if (isExcludedRecordTeam(teamEntry.team)) return;
+        TECH_RECORDS.forEach(function (record) {
+          var value = teamEntry[record.key];
+          if (value == null || value < 0) return;
+          var current = best[record.key];
+          if (!current || value < current.value) {
+            best[record.key] = {
+              value: value,
+              team: teamEntry.team,
+              matchId: match.id,
+              match: match,
+            };
+          }
+        });
+      });
+    });
+    return best;
+  }
+
+  function renderRecordRow(label, valueLabel, meta, matchId) {
+    return (
+      '<button type="button" class="record-row" data-record-match="' + escapeHtml(matchId) + '">' +
+      '<span class="record-label">' + escapeHtml(label) + "</span>" +
+      '<span class="record-value">' + escapeHtml(valueLabel) + "</span>" +
+      '<span class="record-meta">' + escapeHtml(meta) + "</span>" +
+      "</button>"
+    );
+  }
+
+  function renderGlobalRecords() {
+    var milestoneEl = $("#global-milestone-records");
+    var techEl = $("#global-tech-records");
+    if (!milestoneEl || !techEl) return;
+
+    var milestoneBest = computeMilestoneRecords(matches);
+    var milestoneRows = MILESTONE_RECORDS.map(function (record) {
+      var entry = milestoneBest[record.key];
+      if (!entry) {
+        return (
+          '<div class="record-row" style="cursor:default;opacity:0.7">' +
+          '<span class="record-label">' + escapeHtml(record.label) + "</span>" +
+          '<span class="record-value">—</span>' +
+          '<span class="record-meta">No data yet</span>' +
+          "</div>"
+        );
+      }
+      return renderRecordRow(
+        record.label,
+        String(entry.value),
+        formatRecordMeta(entry.match),
+        entry.matchId
+      );
+    }).join("");
+    milestoneEl.innerHTML = milestoneRows || '<div class="empty-state">No milestone data yet.</div>';
+
+    var techBest = computeTechRecords(matches);
+    var techRows = TECH_RECORDS.map(function (record) {
+      var entry = techBest[record.key];
+      if (!entry) {
+        return (
+          '<div class="record-row" style="cursor:default;opacity:0.7">' +
+          '<span class="record-label">' + escapeHtml(record.label) + "</span>" +
+          '<span class="record-value">—</span>' +
+          '<span class="record-meta">No data yet</span>' +
+          "</div>"
+        );
+      }
+      return renderRecordRow(
+        record.label,
+        "Turn " + entry.value,
+        formatRecordMeta(entry.match, "Team " + (entry.team + 1)),
+        entry.matchId
+      );
+    }).join("");
+    techEl.innerHTML = techRows || '<div class="empty-state">No tech data yet.</div>';
+  }
+
+  function navigateToMatch(matchId) {
+    expandedMatchId = matchId;
+    expandedPlayerKey = null;
+    var url = new URL(window.location.href);
+    url.searchParams.set("match", matchId);
+    window.history.replaceState({}, "", url);
+    switchTab("matches");
+    renderMatchList();
+  }
+
+  function renderLeaderboard() {
+    var tableEl = $("#leaderboard-table");
+    var countEl = $("#leaderboard-count");
+    if (!tableEl) return;
+
+    var rows = computeWinLossLeaderboard(matches, leaderboardFormat);
+    if (!rows.length) {
+      tableEl.innerHTML = '<div class="empty-state">No completed matches for this format yet.</div>';
+      if (countEl) countEl.textContent = "0 players";
+      return;
+    }
+
+    var body = rows.map(function (row, index) {
+      return (
+        "<tr>" +
+        "<td>" + (index + 1) + "</td>" +
+        "<td>" + escapeHtml(row.name) + "</td>" +
+        "<td>" + row.wins + "</td>" +
+        "<td>" + row.losses + "</td>" +
+        "<td>" + row.games + "</td>" +
+        "<td>" + formatWinRate(row.winRate) + "</td>" +
+        "</tr>"
+      );
+    }).join("");
+
+    tableEl.innerHTML =
+      '<table class="leaderboard-table">' +
+      "<thead><tr><th>#</th><th>Player</th><th>W</th><th>L</th><th>Games</th><th>Win %</th></tr></thead>" +
+      "<tbody>" + body + "</tbody></table>";
+    if (countEl) {
+      countEl.textContent = rows.length + (rows.length === 1 ? " player" : " players");
+    }
+    renderGlobalRecords();
+  }
+
+  function setLeaderboardFormat(format) {
+    leaderboardFormat = format;
+    document.querySelectorAll(".lb-format-btn").forEach(function (btn) {
+      btn.classList.toggle("active", btn.getAttribute("data-lb-format") === format);
+    });
+    renderLeaderboard();
+  }
+
   function switchTab(tabId) {
     document.querySelectorAll(".tab-btn").forEach(function (btn) {
       btn.classList.toggle("active", btn.getAttribute("data-tab") === tabId);
@@ -231,6 +494,9 @@
     document.querySelectorAll(".tab-panel").forEach(function (panel) {
       panel.classList.toggle("active", panel.id === "tab-" + tabId);
     });
+    if (tabId === "leaderboard") {
+      renderLeaderboard();
+    }
   }
 
   function readDeepLinkMatchId() {
@@ -241,17 +507,11 @@
   function applyDeepLink() {
     var matchId = readDeepLinkMatchId();
     if (!matchId) return;
-    var found = matches.some(function (match) {
+    var found = matches.find(function (match) {
       return match.id === matchId || getSnapshotGameId(match) === matchId.toLowerCase();
     });
     if (!found) return;
-    expandedMatchId = matches.find(function (match) {
-      return match.id === matchId || getSnapshotGameId(match) === matchId.toLowerCase();
-    }).id;
-    switchTab("matches");
-    renderMatchList();
-    var el = document.querySelector('[data-match-id="' + CSS.escape(expandedMatchId) + '"]');
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    navigateToMatch(found.id);
   }
 
   function bindEvents() {
@@ -260,6 +520,22 @@
         switchTab(btn.getAttribute("data-tab"));
       });
     });
+
+    document.querySelectorAll(".lb-format-btn").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        setLeaderboardFormat(btn.getAttribute("data-lb-format"));
+      });
+    });
+
+    var leaderboardPanel = $("#tab-leaderboard");
+    if (leaderboardPanel) {
+      leaderboardPanel.addEventListener("click", function (event) {
+        var recordBtn = event.target.closest("[data-record-match]");
+        if (recordBtn) {
+          navigateToMatch(recordBtn.getAttribute("data-record-match"));
+        }
+      });
+    }
 
     var listEl = $("#match-list");
     if (listEl) {
@@ -293,6 +569,7 @@
         matches = dedupeMatches(data.matches || []);
         applyDeepLink();
         renderMatchList();
+        renderLeaderboard();
       })
       .catch(function () {
         if (listEl) {
