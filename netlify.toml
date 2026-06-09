@@ -18,18 +18,15 @@
   to = "/.netlify/functions/snapshots"
   status = 200
   force = true
-  conditions = {Environment = ["production", "deploy-preview", "branch-deploy"]}
 
 [[redirects]]
   from = "/snapshot/:id"
   to = "/.netlify/functions/view-snapshot/:id"
   status = 200
   force = true
-  conditions = {Environment = ["production", "deploy-preview", "branch-deploy"]}
 
 [[redirects]]
   from = "/api/snapshots/:id"
   to = "/.netlify/functions/get-snapshot/:id"
   status = 200
   force = true
-  conditions = {Environment = ["production", "deploy-preview", "branch-deploy"]}
