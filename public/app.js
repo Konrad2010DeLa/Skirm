@@ -31,6 +31,13 @@
       .replace(/'/g, "&#39;");
   }
 
+  function sanitizeBeliefText(value) {
+    return String(value)
+      .replace(/\s*\[[^\]]*\]/g, "")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+  }
+
   function formatNullableNumber(value) {
     return value == null || value < 0 ? "—" : String(value);
   }
@@ -114,11 +121,12 @@
       return "<p class=\"empty-state\">No end stats recorded.</p>";
     }
     return (
+      '<div class="end-stats-table-wrap">' +
       '<table class="end-stats-table">' +
       "<thead><tr>" +
       "<th>Player</th><th>Prod/T</th><th>Military</th><th>Culture/T</th>" +
       "<th>Pop</th><th>Science/T</th><th>Lost</th><th>Killed</th><th>Trained</th><th>Cities</th>" +
-      "</tr></thead><tbody>" + rows + "</tbody></table>"
+      "</tr></thead><tbody>" + rows + "</tbody></table></div>"
     );
   }
 
@@ -154,7 +162,7 @@
       return escapeHtml(religion.name || "—");
     }
     var items = beliefs.map(function (belief) {
-      return "<li>" + escapeHtml(belief) + "</li>";
+      return "<li>" + escapeHtml(sanitizeBeliefText(belief)) + "</li>";
     }).join("");
     return (
       escapeHtml(religion.name || "Unknown") +
@@ -238,14 +246,21 @@
     );
   }
 
+  function isScrappedMatch(match) {
+    var snapshot = match.snapshot || {};
+    var winnerTeam = match.winnerTeam != null ? match.winnerTeam : snapshot.winnerTeam;
+    return winnerTeam == null || winnerTeam < 0;
+  }
+
   function renderMatchCard(match) {
     var expanded = expandedMatchId === match.id ? " expanded" : "";
+    var winnerChipClass = isScrappedMatch(match) ? "scrapped" : "winner";
     return (
       '<article class="match-item' + expanded + '" data-match-id="' + escapeHtml(match.id) + '">' +
       '<button type="button" class="match-card" aria-expanded="' + (expandedMatchId === match.id ? "true" : "false") + '">' +
       '<span class="match-format">' + escapeHtml(match.format || "?") + "</span>" +
       '<span class="match-card-main">' +
-      '<span class="match-chip winner"><strong>' + escapeHtml(match.winner || "—") + "</strong></span>" +
+      '<span class="match-chip ' + winnerChipClass + '"><strong>' + escapeHtml(match.winner || "—") + "</strong></span>" +
       '<span class="match-chip">Turn <strong>' + escapeHtml(match.turn != null ? match.turn : "?") + "</strong></span>" +
       '<span class="match-chip">Map <strong>' + escapeHtml(match.mapScript || "Unknown") + "</strong></span>" +
       '<span class="match-chip">' + (match.isMultiplayer ? "MP" : "SP") + "</span>" +

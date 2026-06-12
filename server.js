@@ -11,6 +11,7 @@ const {
   dedupeSnapshotsByGameId,
   renderNotFoundPage,
 } = require("./lib/snapshot-core");
+const { applyPlayerAliasesToSnapshot } = require("./lib/player-names");
 
 const PORT = Number(process.env.PORT) || 3847;
 const PUBLIC_BASE_URL = getPublicBaseUrl();
@@ -72,7 +73,7 @@ app.get("/api/snapshots/:id", (req, res) => {
   return res.status(200).json({
     id: entry.id,
     receivedAt: entry.receivedAt,
-    snapshot: entry.snapshot,
+    snapshot: applyPlayerAliasesToSnapshot(entry.snapshot),
   });
 });
 

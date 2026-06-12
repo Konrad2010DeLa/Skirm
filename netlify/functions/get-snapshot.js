@@ -2,6 +2,7 @@
 
 const { fetchSnapshot } = require("../../lib/db");
 const { getSnapshotId } = require("../../lib/ids");
+const { applyPlayerAliasesToSnapshot } = require("../../lib/player-names");
 
 exports.handler = async (event) => {
   const id = getSnapshotId(event);
@@ -20,7 +21,7 @@ exports.handler = async (event) => {
       body: JSON.stringify({
         id: entry.id,
         receivedAt: entry.receivedAt,
-        snapshot: entry.snapshot,
+        snapshot: applyPlayerAliasesToSnapshot(entry.snapshot),
       }),
     };
   } catch (err) {

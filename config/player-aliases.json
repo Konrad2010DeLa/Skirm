@@ -1,0 +1,6 @@
+{
+  "_readme": "Map alternate player names to one canonical name. Keys starting with _ are ignored. Matching is case-insensitive.",
+  "Elephant With Knowledge": "Koreas",
+  "D'Arcy": "D'arcy"
+}
+

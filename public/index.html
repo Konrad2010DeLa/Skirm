@@ -190,6 +190,10 @@ body {
   color: var(--winner);
 }
 
+.match-chip.scrapped strong {
+  color: var(--muted);
+}
+
 .match-card-meta {
   font-size: 0.8rem;
   color: var(--muted);
@@ -259,19 +263,16 @@ body {
   font-weight: normal;
 }
 
+.end-stats-table-wrap {
+  overflow-x: auto;
+  margin-bottom: 0.65rem;
+  -webkit-overflow-scrolling: touch;
+}
+
 .end-stats-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.85rem;
-  margin-bottom: 0.65rem;
-  overflow-x: auto;
-  display: block;
-}
-
-.end-stats-table thead,
-.end-stats-table tbody {
-  display: table;
-  width: 100%;
 }
 
 .end-stats-table th,
