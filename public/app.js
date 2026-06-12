@@ -6,11 +6,10 @@
   var expandedPlayerKey = null;
   var leaderboardFormat = "overall";
   var SKIRM_FORMATS = ["1v1", "2v2", "3v3", "4v4"];
-  var EXCLUDED_RECORD_TEAMS = new Set([22, 23, 24, 25]);
   var MILESTONE_RECORDS = [
-    { key: "maxProductionAt80", label: "Max production @ turn 80" },
-    { key: "maxProductionAt100", label: "Max production @ turn 100" },
-    { key: "maxProductionAt120", label: "Max production @ turn 120" },
+    { key: "maxProductionAt80", playerKey: "maxProductionAt80Player", label: "Max production @ turn 80" },
+    { key: "maxProductionAt100", playerKey: "maxProductionAt100Player", label: "Max production @ turn 100" },
+    { key: "maxProductionAt120", playerKey: "maxProductionAt120Player", label: "Max production @ turn 120" },
     { key: "maxCulturePerTurnAtEnd", label: "Max culture / turn" },
   ];
   var TECH_RECORDS = [
@@ -34,6 +33,15 @@
 
   function formatNullableNumber(value) {
     return value == null || value < 0 ? "—" : String(value);
+  }
+
+  function formatMilestoneWithPlayer(value, playerName) {
+    var formatted = formatNullableNumber(value);
+    if (value == null || value < 0) return formatted;
+    if (playerName && String(playerName).trim()) {
+      return formatted + " (" + escapeHtml(playerName) + ")";
+    }
+    return formatted;
   }
 
   function formatDate(iso) {
@@ -81,6 +89,37 @@
 
   function playerKey(matchId, player) {
     return matchId + ":" + (player.slot != null ? player.slot : player.playerName);
+  }
+
+  function renderPlayerEndStatsRow(player) {
+    return (
+      "<tr>" +
+      "<td>" + escapeHtml(player.playerName) + "</td>" +
+      "<td>" + formatNullableNumber(player.productionPerTurn) + "</td>" +
+      "<td>" + formatNullableNumber(player.militaryMight) + "</td>" +
+      "<td>" + formatNullableNumber(player.culturePerTurn) + "</td>" +
+      "<td>" + formatNullableNumber(player.population) + "</td>" +
+      "<td>" + formatNullableNumber(player.sciencePerTurn) + "</td>" +
+      "<td>" + formatNullableNumber(player.unitsLost) + "</td>" +
+      "<td>" + formatNullableNumber(player.unitsKilled) + "</td>" +
+      "<td>" + formatNullableNumber(player.unitsTrainedProduction) + "</td>" +
+      "<td>" + formatNullableNumber(player.cityCount) + "</td>" +
+      "</tr>"
+    );
+  }
+
+  function renderTeamEndStatsTable(players) {
+    var rows = (players || []).map(renderPlayerEndStatsRow).join("");
+    if (!rows) {
+      return "<p class=\"empty-state\">No end stats recorded.</p>";
+    }
+    return (
+      '<table class="end-stats-table">' +
+      "<thead><tr>" +
+      "<th>Player</th><th>Prod/T</th><th>Military</th><th>Culture/T</th>" +
+      "<th>Pop</th><th>Science/T</th><th>Lost</th><th>Killed</th><th>Trained</th><th>Cities</th>" +
+      "</tr></thead><tbody>" + rows + "</tbody></table>"
+    );
   }
 
   function renderTechTable(teamTechTurns) {
@@ -132,6 +171,15 @@
       "<dt>Civilization</dt><dd>" + escapeHtml(player.civilization || "—") + "</dd>" +
       "<dt>Policies</dt><dd>" + escapeHtml(player.policyUnlocks || "—") + "</dd>" +
       "<dt>Religion</dt><dd>" + renderBeliefs(player.religion) + "</dd>" +
+      "<dt>Production / turn</dt><dd>" + formatNullableNumber(player.productionPerTurn) + "</dd>" +
+      "<dt>Military might</dt><dd>" + formatNullableNumber(player.militaryMight) + "</dd>" +
+      "<dt>Culture / turn</dt><dd>" + formatNullableNumber(player.culturePerTurn) + "</dd>" +
+      "<dt>Population</dt><dd>" + formatNullableNumber(player.population) + "</dd>" +
+      "<dt>Science / turn</dt><dd>" + formatNullableNumber(player.sciencePerTurn) + "</dd>" +
+      "<dt>Units lost</dt><dd>" + formatNullableNumber(player.unitsLost) + "</dd>" +
+      "<dt>Units killed</dt><dd>" + formatNullableNumber(player.unitsKilled) + "</dd>" +
+      "<dt>Units trained (prod)</dt><dd>" + formatNullableNumber(player.unitsTrainedProduction) + "</dd>" +
+      "<dt>Cities</dt><dd>" + formatNullableNumber(player.cityCount) + "</dd>" +
       "</dl></div>"
     );
   }
@@ -159,6 +207,7 @@
         return (
           '<div class="team-group">' +
           '<div class="team-label">Team ' + (team + 1) + "</div>" +
+          renderTeamEndStatsTable(players) +
           '<div class="player-list">' + buttons + "</div>" +
           details +
           "</div>"
@@ -171,9 +220,9 @@
       '<div class="detail-section">' +
       "<h3>Global Milestones</h3>" +
       '<div class="stats-grid">' +
-      "<div><strong>Max prod @80</strong> " + formatNullableNumber(milestones.maxProductionAt80) + "</div>" +
-      "<div><strong>Max prod @100</strong> " + formatNullableNumber(milestones.maxProductionAt100) + "</div>" +
-      "<div><strong>Max prod @120</strong> " + formatNullableNumber(milestones.maxProductionAt120) + "</div>" +
+      "<div><strong>Max prod @80</strong> " + formatMilestoneWithPlayer(milestones.maxProductionAt80, milestones.maxProductionAt80Player) + "</div>" +
+      "<div><strong>Max prod @100</strong> " + formatMilestoneWithPlayer(milestones.maxProductionAt100, milestones.maxProductionAt100Player) + "</div>" +
+      "<div><strong>Max prod @120</strong> " + formatMilestoneWithPlayer(milestones.maxProductionAt120, milestones.maxProductionAt120Player) + "</div>" +
       "<div><strong>Max culture/turn</strong> " + formatNullableNumber(milestones.maxCulturePerTurnAtEnd) + "</div>" +
       "</div></div>" +
       '<div class="detail-section">' +
@@ -266,12 +315,7 @@
 
   function isLeaderboardPlayer(player) {
     if (player.isHuman === false || player.isHuman === 0) return false;
-    if (EXCLUDED_RECORD_TEAMS.has(player.team != null ? player.team : -1)) return false;
     return typeof player.playerName === "string" && player.playerName.trim() !== "";
-  }
-
-  function isExcludedRecordTeam(team) {
-    return EXCLUDED_RECORD_TEAMS.has(team != null ? team : -1);
   }
 
   function computeWinLossLeaderboard(items, formatFilter) {
@@ -279,7 +323,6 @@
     items.forEach(function (match) {
       var snapshot = match.snapshot || {};
       if (snapshot.winnerTeam == null || snapshot.winnerTeam < 0) return;
-      if (isExcludedRecordTeam(snapshot.winnerTeam)) return;
       if (!match.isMultiplayer) return;
       var format = match.format || "";
       if (formatFilter === "overall") {
@@ -345,7 +388,12 @@
         if (value == null || value < 0) return;
         var current = best[record.key];
         if (!current || value > current.value) {
-          best[record.key] = { value: value, matchId: match.id, match: match };
+          best[record.key] = {
+            value: value,
+            playerName: record.playerKey ? milestones[record.playerKey] : null,
+            matchId: match.id,
+            match: match,
+          };
         }
       });
     });
@@ -357,7 +405,6 @@
     items.forEach(function (match) {
       if (!isSkirmMatch(match)) return;
       ((match.snapshot || {}).teamTechTurns || []).forEach(function (teamEntry) {
-        if (isExcludedRecordTeam(teamEntry.team)) return;
         TECH_RECORDS.forEach(function (record) {
           var value = teamEntry[record.key];
           if (value == null || value < 0) return;
@@ -403,9 +450,13 @@
           "</div>"
         );
       }
+      var valueLabel = String(entry.value);
+      if (entry.playerName && String(entry.playerName).trim()) {
+        valueLabel += " (" + entry.playerName + ")";
+      }
       return renderRecordRow(
         record.label,
-        String(entry.value),
+        valueLabel,
         formatRecordMeta(entry.match),
         entry.matchId
       );
