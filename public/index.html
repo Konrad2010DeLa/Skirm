@@ -510,6 +510,16 @@ body {
   border-top: 1px solid var(--border);
 }
 
+.meta-winloss-section {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+}
+
+.meta-winloss-table {
+  margin-top: 0.35rem;
+}
+
 .global-records-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -675,6 +685,20 @@ footer {
         <div id="leaderboard-table">
           <div class="loading-state">Loading leaderboard…</div>
         </div>
+
+        <section class="meta-winloss-section" aria-label="Civilization win loss records">
+          <h2 class="lb-section-title">Win / Loss by Civilization</h2>
+          <div id="civilization-winloss-table">
+            <div class="loading-state">Loading records…</div>
+          </div>
+        </section>
+
+        <section class="meta-winloss-section" aria-label="Policy branch win loss records">
+          <h2 class="lb-section-title">Win / Loss by Policy Branch (pick order)</h2>
+          <div id="policy-branch-winloss-table">
+            <div class="loading-state">Loading records…</div>
+          </div>
+        </section>
 
         <section class="global-records-section" aria-label="Global records">
           <h2 class="lb-section-title">Global Records</h2>

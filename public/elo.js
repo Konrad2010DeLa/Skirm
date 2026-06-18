@@ -2,7 +2,7 @@
 
 (function (global) {
   var ELO_START = 1500;
-  var ELO_K = 32;
+  var ELO_K = 64;
   var SKIRM_FORMATS = ["1v1", "2v2", "3v3", "4v4"];
 
   function expectedScore(ratingA, ratingB) {

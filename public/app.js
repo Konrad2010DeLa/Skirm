@@ -29,6 +29,17 @@
     { key: "unitsTrainedProduction", label: "Units trained", higherIsBetter: true },
     { key: "cityCount", label: "Cities", higherIsBetter: true },
   ];
+  var POLICY_BRANCH_LABELS = {
+    Trad: "Tradition",
+    Lib: "Liberty",
+    Piety: "Piety",
+    Honor: "Honor",
+    Comm: "Commerce",
+    Rati: "Rationalism",
+    Free: "Freedom",
+    Order: "Order",
+    Auto: "Autocracy",
+  };
 
   function $(selector) {
     return document.querySelector(selector);
@@ -346,18 +357,176 @@
     return typeof player.playerName === "string" && player.playerName.trim() !== "";
   }
 
+  function isLeaderboardMatch(match, formatFilter) {
+    var snapshot = match.snapshot || {};
+    if (snapshot.winnerTeam == null || snapshot.winnerTeam < 0) return false;
+    if (!match.isMultiplayer) return false;
+    var format = match.format || "";
+    if (formatFilter === "overall") {
+      return SKIRM_FORMATS.indexOf(format) !== -1;
+    }
+    return format === formatFilter;
+  }
+
+  function normalizeCivilizationName(name) {
+    return String(name || "").trim();
+  }
+
+  function formatPickOrder(order) {
+    if (order === 1) return "1st";
+    if (order === 2) return "2nd";
+    if (order === 3) return "3rd";
+    return order + "th";
+  }
+
+  function formatPolicyBranchLabel(shortLabel) {
+    return POLICY_BRANCH_LABELS[shortLabel] || shortLabel;
+  }
+
+  function formatPolicyBranchPickLabel(shortLabel, order) {
+    return formatPolicyBranchLabel(shortLabel) + " (" + formatPickOrder(order) + ")";
+  }
+
+  function getPlayerPolicyBranchOrder(player) {
+    if (!Array.isArray(player.policyBranchOrder)) return [];
+    return player.policyBranchOrder
+      .map(function (branch) {
+        return String(branch || "").trim();
+      })
+      .filter(function (branch) {
+        return branch !== "";
+      });
+  }
+
+  function buildWinLossEntry(stats, key, displayName) {
+    if (!stats.has(key)) {
+      stats.set(key, { name: displayName, wins: 0, losses: 0 });
+    }
+    return stats.get(key);
+  }
+
+  function finalizeWinLossRows(stats) {
+    return Array.from(stats.values())
+      .map(function (entry) {
+        var games = entry.wins + entry.losses;
+        return {
+          name: entry.name,
+          wins: entry.wins,
+          losses: entry.losses,
+          games: games,
+          winRate: games > 0 ? (entry.wins / games) * 100 : 0,
+        };
+      })
+      .sort(function (a, b) {
+        if (b.games !== a.games) return b.games - a.games;
+        if (b.winRate !== a.winRate) return b.winRate - a.winRate;
+        return a.name.localeCompare(b.name);
+      });
+  }
+
+  function computeCivilizationWinLoss(items, formatFilter) {
+    var stats = new Map();
+    items.forEach(function (match) {
+      if (!isLeaderboardMatch(match, formatFilter)) return;
+      var snapshot = match.snapshot || {};
+      (snapshot.players || []).forEach(function (player) {
+        if (!isLeaderboardPlayer(player)) return;
+        var civName = normalizeCivilizationName(player.civilization);
+        if (!civName) return;
+        var key = civName.toLowerCase();
+        var entry = buildWinLossEntry(stats, key, civName);
+        if (player.team === snapshot.winnerTeam) {
+          entry.wins += 1;
+        } else {
+          entry.losses += 1;
+        }
+      });
+    });
+    return finalizeWinLossRows(stats);
+  }
+
+  function computePolicyBranchWinLoss(items, formatFilter) {
+    var stats = new Map();
+    var hasData = false;
+    items.forEach(function (match) {
+      if (!isLeaderboardMatch(match, formatFilter)) return;
+      var snapshot = match.snapshot || {};
+      (snapshot.players || []).forEach(function (player) {
+        if (!isLeaderboardPlayer(player)) return;
+        var branchOrder = getPlayerPolicyBranchOrder(player);
+        if (!branchOrder.length) return;
+        hasData = true;
+        branchOrder.forEach(function (branch, index) {
+          var order = index + 1;
+          var key = branch + "|" + order;
+          var label = formatPolicyBranchPickLabel(branch, order);
+          var entry = buildWinLossEntry(stats, key, label);
+          if (player.team === snapshot.winnerTeam) {
+            entry.wins += 1;
+          } else {
+            entry.losses += 1;
+          }
+        });
+      });
+    });
+    return {
+      rows: finalizeWinLossRows(stats),
+      hasData: hasData,
+    };
+  }
+
+  function renderMetaWinLossTable(rows, emptyLabel) {
+    if (!rows.length) {
+      return '<div class="empty-state">' + escapeHtml(emptyLabel) + "</div>";
+    }
+    var body = rows.map(function (row, index) {
+      return (
+        "<tr>" +
+        "<td>" + (index + 1) + "</td>" +
+        "<td>" + escapeHtml(row.name) + "</td>" +
+        "<td>" + row.wins + "</td>" +
+        "<td>" + row.losses + "</td>" +
+        "<td>" + row.games + "</td>" +
+        "<td>" + formatWinRate(row.winRate) + "</td>" +
+        "</tr>"
+      );
+    }).join("");
+    return (
+      '<table class="leaderboard-table meta-winloss-table">' +
+      "<thead><tr>" +
+      "<th>#</th><th>Name</th><th>W</th><th>L</th><th>Games</th><th>Win %</th>" +
+      "</tr></thead>" +
+      "<tbody>" + body + "</tbody></table>"
+    );
+  }
+
+  function renderMetaWinLossSections() {
+    var civEl = $("#civilization-winloss-table");
+    var policyEl = $("#policy-branch-winloss-table");
+    if (!civEl || !policyEl) return;
+
+    civEl.innerHTML = renderMetaWinLossTable(
+      computeCivilizationWinLoss(matches, leaderboardFormat),
+      "No civilization data for this format yet."
+    );
+
+    var policyStats = computePolicyBranchWinLoss(matches, leaderboardFormat);
+    if (!policyStats.hasData) {
+      policyEl.innerHTML =
+        '<div class="empty-state">No policy pick-order data yet. New matches recorded after the next DLL update will populate this table.</div>';
+      return;
+    }
+    policyEl.innerHTML = renderMetaWinLossTable(
+      policyStats.rows,
+      "No policy branch data for this format yet."
+    );
+  }
+
   function computeWinLossLeaderboard(items, formatFilter, ratingsByFormat) {
     var stats = new Map();
     items.forEach(function (match) {
+      if (!isLeaderboardMatch(match, formatFilter)) return;
       var snapshot = match.snapshot || {};
-      if (snapshot.winnerTeam == null || snapshot.winnerTeam < 0) return;
-      if (!match.isMultiplayer) return;
-      var format = match.format || "";
-      if (formatFilter === "overall") {
-        if (SKIRM_FORMATS.indexOf(format) === -1) return;
-      } else if (format !== formatFilter) {
-        return;
-      }
       (snapshot.players || []).forEach(function (player) {
         if (!isLeaderboardPlayer(player)) return;
         var key = normalizePlayerName(player.playerName);
@@ -744,6 +913,7 @@
     if (countEl) {
       countEl.textContent = rows.length + (rows.length === 1 ? " player" : " players");
     }
+    renderMetaWinLossSections();
     renderGlobalRecords();
   }
 
