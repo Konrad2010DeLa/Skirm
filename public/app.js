@@ -5,7 +5,10 @@
   var expandedMatchId = null;
   var expandedPlayerKey = null;
   var leaderboardFormat = "overall";
+  var leaderboardSortKey = "elo";
+  var leaderboardSortDir = "desc";
   var SKIRM_FORMATS = ["1v1", "2v2", "3v3", "4v4"];
+  var eloState = null;
   var MILESTONE_RECORDS = [
     { key: "maxProductionAt80", playerKey: "maxProductionAt80Player", label: "Max production @ turn 80" },
     { key: "maxProductionAt100", playerKey: "maxProductionAt100Player", label: "Max production @ turn 100" },
@@ -16,6 +19,15 @@
     { key: "machineryTurn", label: "Machinery" },
     { key: "metalCastingTurn", label: "Metal Casting" },
     { key: "chivalryTurn", label: "Chivalry" },
+  ];
+  var PLAYER_RECORDS = [
+    { key: "productionPerTurn", label: "Production / turn", higherIsBetter: true },
+    { key: "population", label: "Population", higherIsBetter: true },
+    { key: "sciencePerTurn", label: "Science / turn", higherIsBetter: true },
+    { key: "unitsLost", label: "Units lost", higherIsBetter: false },
+    { key: "unitsKilled", label: "Units killed", higherIsBetter: true },
+    { key: "unitsTrainedProduction", label: "Units trained", higherIsBetter: true },
+    { key: "cityCount", label: "Cities", higherIsBetter: true },
   ];
 
   function $(selector) {
@@ -225,6 +237,7 @@
 
     return (
       '<div class="match-detail">' +
+      renderMatchEloSection(match) +
       '<div class="detail-section">' +
       "<h3>Global Milestones</h3>" +
       '<div class="stats-grid">' +
@@ -333,7 +346,7 @@
     return typeof player.playerName === "string" && player.playerName.trim() !== "";
   }
 
-  function computeWinLossLeaderboard(items, formatFilter) {
+  function computeWinLossLeaderboard(items, formatFilter, ratingsByFormat) {
     var stats = new Map();
     items.forEach(function (match) {
       var snapshot = match.snapshot || {};
@@ -363,23 +376,157 @@
     return Array.from(stats.values())
       .map(function (entry) {
         var games = entry.wins + entry.losses;
+        var playerKey = normalizePlayerName(entry.name);
+        var elo = ratingsByFormat && typeof MalrosElo !== "undefined"
+          ? MalrosElo.getPlayerElo(ratingsByFormat, formatFilter, playerKey)
+          : null;
         return {
           name: entry.name,
           wins: entry.wins,
           losses: entry.losses,
           games: games,
           winRate: games > 0 ? (entry.wins / games) * 100 : 0,
+          elo: elo,
         };
-      })
-      .sort(function (a, b) {
-        if (b.wins !== a.wins) return b.wins - a.wins;
-        if (b.winRate !== a.winRate) return b.winRate - a.winRate;
-        return b.games - a.games;
       });
+  }
+
+  function sortLeaderboardRows(rows, sortKey, sortDir) {
+    var multiplier = sortDir === "asc" ? 1 : -1;
+    return rows.slice().sort(function (a, b) {
+      var aVal = a[sortKey];
+      var bVal = b[sortKey];
+      if (sortKey === "name") {
+        var nameCmp = String(aVal).localeCompare(String(bVal));
+        if (nameCmp !== 0) return nameCmp * multiplier;
+      } else if (sortKey === "elo") {
+        var aElo = aVal == null ? -1 : aVal;
+        var bElo = bVal == null ? -1 : bVal;
+        if (aElo !== bElo) return (aElo - bElo) * multiplier;
+      } else if (aVal !== bVal) {
+        return (aVal - bVal) * multiplier;
+      }
+      if (b.wins !== a.wins) return b.wins - a.wins;
+      if (b.winRate !== a.winRate) return b.winRate - a.winRate;
+      return b.games - a.games;
+    });
+  }
+
+  function renderLeaderboardSortHeader(key, label) {
+    var active = leaderboardSortKey === key;
+    var className = "lb-sortable";
+    if (active) {
+      className += leaderboardSortDir === "asc" ? " lb-sort-asc" : " lb-sort-desc";
+    }
+    var ariaSort = active
+      ? (leaderboardSortDir === "asc" ? "ascending" : "descending")
+      : "none";
+    return (
+      '<th class="' + className + '" data-lb-sort="' + key + '" aria-sort="' + ariaSort + '">' +
+      label +
+      "</th>"
+    );
   }
 
   function formatWinRate(value) {
     return value.toFixed(1) + "%";
+  }
+
+  function formatElo(value) {
+    return value == null ? "—" : String(value);
+  }
+
+  function formatEloChange(value) {
+    if (value == null || value === 0) return "0";
+    var rounded = Math.round(value * 10) / 10;
+    return (rounded > 0 ? "+" : "") + rounded;
+  }
+
+  function eloChangeClass(value) {
+    if (value == null || value === 0) return "elo-neutral";
+    return value > 0 ? "elo-gain" : "elo-loss";
+  }
+
+  function recomputeElo() {
+    if (typeof MalrosElo === "undefined") {
+      eloState = null;
+      return;
+    }
+    eloState = MalrosElo.compute(matches, { formats: SKIRM_FORMATS });
+  }
+
+  function getMatchEloBreakdown(match) {
+    if (!eloState || !match) return null;
+    return eloState.matchResults.get(match.id) || null;
+  }
+
+  function renderMatchEloSection(match) {
+    var breakdown = getMatchEloBreakdown(match);
+    if (!breakdown) {
+      if (isScrappedMatch(match) || !isSkirmMatch(match)) {
+        return (
+          '<div class="detail-section">' +
+          "<h3>ELO</h3>" +
+          '<p class="empty-state">No ELO change — scrapped or non-skirm match.</p>' +
+          "</div>"
+        );
+      }
+      return "";
+    }
+
+    var teamRows = breakdown.teams
+      .slice()
+      .sort(function (a, b) {
+        return a.team - b.team;
+      })
+      .map(function (teamEntry) {
+        var resultLabel = teamEntry.won ? "Win" : "Loss";
+        return (
+          "<tr>" +
+          "<td>Team " + (teamEntry.team + 1) + "</td>" +
+          "<td>" + teamEntry.avgBefore + "</td>" +
+          '<td class="' + eloChangeClass(teamEntry.delta) + '">' + formatEloChange(teamEntry.delta) + "</td>" +
+          "<td>" + resultLabel + "</td>" +
+          "</tr>"
+        );
+      })
+      .join("");
+
+    var playerRows = breakdown.players
+      .slice()
+      .sort(function (a, b) {
+        if (a.team !== b.team) return a.team - b.team;
+        return a.name.localeCompare(b.name);
+      })
+      .map(function (playerEntry) {
+        return (
+          "<tr>" +
+          "<td>" + escapeHtml(playerEntry.name) + "</td>" +
+          "<td>Team " + (playerEntry.team + 1) + "</td>" +
+          "<td>" + playerEntry.before + "</td>" +
+          '<td class="' + eloChangeClass(playerEntry.change) + '">' + formatEloChange(playerEntry.change) + "</td>" +
+          "<td>" + playerEntry.after + "</td>" +
+          "</tr>"
+        );
+      })
+      .join("");
+
+    return (
+      '<div class="detail-section">' +
+      "<h3>ELO (" + escapeHtml(breakdown.format) + ")</h3>" +
+      '<div class="elo-breakdown">' +
+      '<div class="elo-breakdown-block">' +
+      "<h4>Teams</h4>" +
+      '<table class="elo-table">' +
+      "<thead><tr><th>Team</th><th>Avg ELO</th><th>Change</th><th>Result</th></tr></thead>" +
+      "<tbody>" + teamRows + "</tbody></table></div>" +
+      '<div class="elo-breakdown-block">' +
+      "<h4>Players</h4>" +
+      '<table class="elo-table">' +
+      "<thead><tr><th>Player</th><th>Team</th><th>Before</th><th>Change</th><th>After</th></tr></thead>" +
+      "<tbody>" + playerRows + "</tbody></table></div>" +
+      "</div></div>"
+    );
   }
 
   function isSkirmMatch(match) {
@@ -438,6 +585,36 @@
     return best;
   }
 
+  function isBetterPlayerRecord(value, current, higherIsBetter) {
+    if (!current) return true;
+    if (higherIsBetter) return value > current.value;
+    return value < current.value;
+  }
+
+  function computePlayerRecords(items) {
+    var best = {};
+    items.forEach(function (match) {
+      if (!isSkirmMatch(match)) return;
+      ((match.snapshot || {}).players || []).forEach(function (player) {
+        if (!isLeaderboardPlayer(player)) return;
+        PLAYER_RECORDS.forEach(function (record) {
+          var value = player[record.key];
+          if (value == null || value < 0) return;
+          var current = best[record.key];
+          if (isBetterPlayerRecord(value, current, record.higherIsBetter !== false)) {
+            best[record.key] = {
+              value: value,
+              playerName: player.playerName,
+              matchId: match.id,
+              match: match,
+            };
+          }
+        });
+      });
+    });
+    return best;
+  }
+
   function renderRecordRow(label, valueLabel, meta, matchId) {
     return (
       '<button type="button" class="record-row" data-record-match="' + escapeHtml(matchId) + '">' +
@@ -448,14 +625,9 @@
     );
   }
 
-  function renderGlobalRecords() {
-    var milestoneEl = $("#global-milestone-records");
-    var techEl = $("#global-tech-records");
-    if (!milestoneEl || !techEl) return;
-
-    var milestoneBest = computeMilestoneRecords(matches);
-    var milestoneRows = MILESTONE_RECORDS.map(function (record) {
-      var entry = milestoneBest[record.key];
+  function renderRecordList(records, best, emptyLabel) {
+    return records.map(function (record) {
+      var entry = best[record.key];
       if (!entry) {
         return (
           '<div class="record-row" style="cursor:default;opacity:0.7">' +
@@ -475,11 +647,23 @@
         formatRecordMeta(entry.match),
         entry.matchId
       );
-    }).join("");
-    milestoneEl.innerHTML = milestoneRows || '<div class="empty-state">No milestone data yet.</div>';
+    }).join("") || '<div class="empty-state">' + escapeHtml(emptyLabel) + "</div>";
+  }
+
+  function renderGlobalRecords() {
+    var milestoneEl = $("#global-milestone-records");
+    var techEl = $("#global-tech-records");
+    var playerEl = $("#global-player-records");
+    if (!milestoneEl || !techEl || !playerEl) return;
+
+    milestoneEl.innerHTML = renderRecordList(
+      MILESTONE_RECORDS,
+      computeMilestoneRecords(matches),
+      "No milestone data yet."
+    );
 
     var techBest = computeTechRecords(matches);
-    var techRows = TECH_RECORDS.map(function (record) {
+    techEl.innerHTML = TECH_RECORDS.map(function (record) {
       var entry = techBest[record.key];
       if (!entry) {
         return (
@@ -496,8 +680,13 @@
         formatRecordMeta(entry.match, "Team " + (entry.team + 1)),
         entry.matchId
       );
-    }).join("");
-    techEl.innerHTML = techRows || '<div class="empty-state">No tech data yet.</div>';
+    }).join("") || '<div class="empty-state">No tech data yet.</div>';
+
+    playerEl.innerHTML = renderRecordList(
+      PLAYER_RECORDS,
+      computePlayerRecords(matches),
+      "No end-game stat data yet."
+    );
   }
 
   function navigateToMatch(matchId) {
@@ -515,7 +704,12 @@
     var countEl = $("#leaderboard-count");
     if (!tableEl) return;
 
-    var rows = computeWinLossLeaderboard(matches, leaderboardFormat);
+    var ratingsByFormat = eloState ? eloState.ratingsByFormat : null;
+    var rows = sortLeaderboardRows(
+      computeWinLossLeaderboard(matches, leaderboardFormat, ratingsByFormat),
+      leaderboardSortKey,
+      leaderboardSortDir
+    );
     if (!rows.length) {
       tableEl.innerHTML = '<div class="empty-state">No completed matches for this format yet.</div>';
       if (countEl) countEl.textContent = "0 players";
@@ -531,13 +725,21 @@
         "<td>" + row.losses + "</td>" +
         "<td>" + row.games + "</td>" +
         "<td>" + formatWinRate(row.winRate) + "</td>" +
+        "<td>" + formatElo(row.elo) + "</td>" +
         "</tr>"
       );
     }).join("");
 
     tableEl.innerHTML =
       '<table class="leaderboard-table">' +
-      "<thead><tr><th>#</th><th>Player</th><th>W</th><th>L</th><th>Games</th><th>Win %</th></tr></thead>" +
+      "<thead><tr>" +
+      "<th>#</th><th>Player</th>" +
+      renderLeaderboardSortHeader("wins", "W") +
+      renderLeaderboardSortHeader("losses", "L") +
+      renderLeaderboardSortHeader("games", "Games") +
+      renderLeaderboardSortHeader("winRate", "Win %") +
+      renderLeaderboardSortHeader("elo", "ELO") +
+      "</tr></thead>" +
       "<tbody>" + body + "</tbody></table>";
     if (countEl) {
       countEl.textContent = rows.length + (rows.length === 1 ? " player" : " players");
@@ -596,6 +798,18 @@
     var leaderboardPanel = $("#tab-leaderboard");
     if (leaderboardPanel) {
       leaderboardPanel.addEventListener("click", function (event) {
+        var sortHeader = event.target.closest("[data-lb-sort]");
+        if (sortHeader) {
+          var sortKey = sortHeader.getAttribute("data-lb-sort");
+          if (leaderboardSortKey === sortKey) {
+            leaderboardSortDir = leaderboardSortDir === "desc" ? "asc" : "desc";
+          } else {
+            leaderboardSortKey = sortKey;
+            leaderboardSortDir = "desc";
+          }
+          renderLeaderboard();
+          return;
+        }
         var recordBtn = event.target.closest("[data-record-match]");
         if (recordBtn) {
           navigateToMatch(recordBtn.getAttribute("data-record-match"));
@@ -633,6 +847,7 @@
       })
       .then(function (data) {
         matches = dedupeMatches(data.matches || []);
+        recomputeElo();
         applyDeepLink();
         renderMatchList();
         renderLeaderboard();

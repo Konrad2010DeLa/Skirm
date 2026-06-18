@@ -457,6 +457,34 @@ body {
   font-weight: normal;
 }
 
+.leaderboard-table th.lb-sortable {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.leaderboard-table th.lb-sortable:hover {
+  color: var(--gold);
+}
+
+.leaderboard-table th.lb-sortable::after {
+  content: " \2195";
+  opacity: 0.35;
+  font-size: 0.85em;
+}
+
+.leaderboard-table th.lb-sortable.lb-sort-asc::after {
+  content: " \2191";
+  opacity: 1;
+  color: var(--gold);
+}
+
+.leaderboard-table th.lb-sortable.lb-sort-desc::after {
+  content: " \2193";
+  opacity: 1;
+  color: var(--gold);
+}
+
 .leaderboard-table td:first-child,
 .leaderboard-table th:first-child {
   width: 2.5rem;
@@ -540,6 +568,54 @@ body {
   color: var(--muted);
 }
 
+.elo-gain {
+  color: var(--winner);
+}
+
+.elo-loss {
+  color: #c97a6a;
+}
+
+.elo-neutral {
+  color: var(--muted);
+}
+
+.elo-breakdown {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0.85rem;
+}
+
+.elo-breakdown-block h4 {
+  margin: 0 0 0.45rem;
+  font-size: 0.8rem;
+  font-weight: normal;
+  color: var(--gold-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.elo-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.elo-table th,
+.elo-table td {
+  padding: 0.4rem 0.55rem;
+  text-align: left;
+  border-bottom: 1px solid rgba(92, 74, 42, 0.45);
+}
+
+.elo-table th {
+  color: var(--gold-dim);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: normal;
+}
+
 footer {
   margin-top: 1.5rem;
   color: var(--muted);
@@ -586,7 +662,7 @@ footer {
     <section id="tab-leaderboard" class="tab-panel" role="tabpanel">
       <div class="leaderboard-box">
         <div class="leaderboard-box-header">
-          <span>Win / loss record</span>
+          <span>Win / loss record &amp; ELO</span>
           <span id="leaderboard-count">—</span>
         </div>
         <nav class="lb-format-nav" aria-label="Game size filter">
@@ -615,6 +691,12 @@ footer {
                 <div class="loading-state">Loading records…</div>
               </div>
             </div>
+            <div class="records-block">
+              <h3>End Game Stats</h3>
+              <div id="global-player-records" class="record-list">
+                <div class="loading-state">Loading records…</div>
+              </div>
+            </div>
           </div>
         </section>
       </div>
@@ -626,6 +708,7 @@ footer {
 
     <footer>Malros Mod · Skirmish snapshot server</footer>
   </div>
+  <script src="/elo.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>
