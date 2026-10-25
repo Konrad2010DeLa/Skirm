@@ -81,7 +81,7 @@ Netlify deploys from Git. You need `Web/GameSnapshotServer` in a GitHub/GitLab/B
 | `SUPABASE_URL` | Your Supabase Project URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | Your Supabase service_role key |
 | `PUBLIC_BASE_URL` | Your Netlify site URL, e.g. `https://malros-snapshots.netlify.app` (no trailing slash) |
-| `SNAPSHOT_TTL_DAYS` | `30` (optional; `0` = never expire) |
+| `SNAPSHOT_TTL_DAYS` | `0` (optional; keep all saved data; set e.g. `30` to expire older rows) |
 
 `PUBLIC_BASE_URL` must match the URL players open in Steam overlay. If you add a custom domain later, update this.
 
@@ -167,7 +167,7 @@ npm run netlify:dev
 | Upload returns 500 | Check Netlify **Functions** logs; verify `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` |
 | `viewUrl` points at wrong host | Set `PUBLIC_BASE_URL` to your public HTTPS URL and redeploy |
 | Game says upload failed | Response must contain `"viewUrl":"https://..."` — test with curl first |
-| Snapshot not found | Check Supabase table; TTL may have excluded old rows |
+| Snapshot not found | Check Supabase table; if `SNAPSHOT_TTL_DAYS` is set > 0 it may exclude old rows |
 | 400 on invalid JSON | Expected; game shows error body |
 | `Could not resolve "@supabase/supabase-js"` | Run `npm install` in `Web/GameSnapshotServer` before `netlify dev` |
 | `Expected ";" but found "\x00"` on a function file | File was saved as UTF-16; re-save as UTF-8 (VS Code: bottom-right encoding → UTF-8) |

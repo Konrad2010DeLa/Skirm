@@ -53,7 +53,7 @@ Open the `viewUrl` from the response in a browser.
 |----------|---------|-------------|
 | `PORT` | `3847` | Listen port |
 | `PUBLIC_BASE_URL` | `http://127.0.0.1:{PORT}` | Base URL embedded in `viewUrl` (must match what players can open) |
-| `SNAPSHOT_TTL_DAYS` | `30` | Days before snapshots expire (`0` = no expiry) |
+| `SNAPSHOT_TTL_DAYS` | `0` | Days before snapshots expire (`0` = no expiry / keep all) |
 
 ## Production deployment
 

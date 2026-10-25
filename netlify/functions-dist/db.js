@@ -12,8 +12,8 @@ function getSupabase() {
 }
 
 function getTtlDays() {
-  const days = Number(process.env.SNAPSHOT_TTL_DAYS || 30);
-  return Number.isFinite(days) ? days : 30;
+  const days = Number(process.env.SNAPSHOT_TTL_DAYS || 0);
+  return Number.isFinite(days) ? days : 0;
 }
 
 async function insertSnapshot(id, snapshot) {
