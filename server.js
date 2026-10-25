@@ -15,7 +15,7 @@ const { applyPlayerAliasesToSnapshot } = require("./lib/player-names");
 
 const PORT = Number(process.env.PORT) || 3847;
 const PUBLIC_BASE_URL = getPublicBaseUrl();
-const TTL_MS = Number(process.env.SNAPSHOT_TTL_DAYS || 30) * 24 * 60 * 60 * 1000;
+const TTL_MS = Number(process.env.SNAPSHOT_TTL_DAYS || 0) * 24 * 60 * 60 * 1000;
 
 /** @type {Map<string, { id: string, snapshot: object, receivedAt: string }>} */
 const snapshots = new Map();
